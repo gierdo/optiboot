@@ -29,13 +29,12 @@ PROGRAM    = optiboot
 # OS ?= macosx
 # OS ?= windows
 
-
 # enter the parameters for the avrdude isp tool
-ISPTOOL	   = stk500v2
-ISPPORT	   = usb
-ISPSPEED   = -b 115200
+ISPTOOL	   = avrisp 
+ISPPORT	   = /dev/ttyUSB0
+ISPSPEED   = -b 19200
 
-MCU_TARGET = atmega168
+MCU_TARGET = atmega1284p
 LDSECTIONS  = -Wl,--section-start=.text=0x3e00 -Wl,--section-start=.version=0x3ffe
 
 # Build environments
@@ -77,8 +76,9 @@ GCCROOT = $(TOOLROOT)/avr/bin/
 AVRDUDE_CONF = -C$(TOOLROOT)/avr/etc/avrdude.conf
 
 else
-GCCROOT =
+GCCROOT = /usr/bin/
 AVRDUDE_CONF =
+AVRDUDE_ROOT = /usr/local/bin/
 endif
 #
 # End of build environment code.
@@ -94,12 +94,12 @@ endif
 # lock it), but since the high two bits of the lock byte are
 # unused, avrdude would get confused.
 
-ISPFUSES    = $(GCCROOT)avrdude $(AVRDUDE_CONF) -c $(ISPTOOL) \
+ISPFUSES    = $(AVRDUDE_ROOT)avrdude $(AVRDUDE_CONF) -c $(ISPTOOL) \
               -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
               -e -u -U lock:w:0x3f:m -U efuse:w:0x$(EFUSE):m \
               -U hfuse:w:0x$(HFUSE):m -U lfuse:w:0x$(LFUSE):m
-ISPFLASH    = $(GCCROOT)avrdude $(AVRDUDE_CONF) -c $(ISPTOOL) \
-              -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
+ISPFLASH    = $(AVRDUDE_ROOT)avrdude $(AVRDUDE_CONF) -c $(ISPTOOL) \
+              -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) -V \
               -U flash:w:$(PROGRAM)_$(TARGET).hex -U lock:w:0x2f:m
 
 STK500 = "C:\Program Files\Atmel\AVR Tools\STK500\Stk500.exe"
@@ -108,10 +108,10 @@ STK500-1 = $(STK500) -e -d$(MCU_TARGET) -pf -vf -if$(PROGRAM)_$(TARGET).hex \
 STK500-2 = $(STK500) -d$(MCU_TARGET) -ms -q -lCF -LCF -cUSB -I200kHz -s -wt
 
 OBJ        = $(PROGRAM).o
-OPTIMIZE = -Os -fno-inline-small-functions -fno-split-wide-types -mshort-calls
+OPTIMIZE = -Os -fno-inline-small-functions -fno-split-wide-types
 
 DEFS       = 
-LIBS       =
+LIBS       = -lc -lm
 
 CC         = $(GCCROOT)avr-gcc
 
@@ -238,9 +238,9 @@ atmega328_isp: isp
 
 atmega1284: TARGET = atmega1284p
 atmega1284: MCU_TARGET = atmega1284p
-atmega1284: CFLAGS += '-DLED_START_FLASHES=3' '-DBAUD_RATE=115200' '-DBIGBOOT'
-atmega1284: AVR_FREQ = 16000000L
-atmega1284: LDSECTIONS  = -Wl,--section-start=.text=0x1fc00
+atmega1284: CFLAGS += '-DBAUD_RATE=19200' '-DBIGBOOT'
+atmega1284: AVR_FREQ = 20000000L
+atmega1284: LDSECTIONS  = -Wl,--section-start=.text=0x1f800
 atmega1284: $(PROGRAM)_atmega1284p.hex
 atmega1284: $(PROGRAM)_atmega1284p.lst
 
@@ -254,6 +254,25 @@ atmega1284_isp: LFUSE = FF
 # 2.7V brownout
 atmega1284_isp: EFUSE = FD
 atmega1284_isp: isp
+
+atmega1284_slow: TARGET = atmega1284p_slow
+atmega1284_slow: MCU_TARGET = atmega1284p
+atmega1284_slow: CFLAGS += '-DLED_START_FLASHES=3' '-DBAUD_RATE=19200' '-DBIGBOOT'
+atmega1284_slow: AVR_FREQ = 16000000L
+atmega1284_slow: LDSECTIONS  = -Wl,--section-start=.text=0x1fc00
+atmega1284_slow: $(PROGRAM)_atmega1284p_slow.hex
+atmega1284_slow: $(PROGRAM)_atmega1284p_slow.lst
+
+atmega1284_slow_isp: atmega1284_slow
+atmega1284_slow_isp: TARGET = atmega1284p_slow
+atmega1284_slow_isp: MCU_TARGET = atmega1284p
+# 1024 byte boot
+atmega1284_slow_isp: HFUSE = DE
+# Low power xtal (16MHz) 16KCK/14CK+65ms
+atmega1284_slow_isp: LFUSE = FF
+# 2.7V brownout
+atmega1284_slow_isp: EFUSE = FD
+atmega1284_slow_isp: isp
 
 # Sanguino has a minimum boot size of 1024 bytes, so enable extra functions
 #
